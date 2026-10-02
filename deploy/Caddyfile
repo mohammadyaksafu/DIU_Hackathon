@@ -1,9 +1,18 @@
 # Caddy gets and renews the HTTPS certificate for {$DOMAIN} automatically.
 {
 	email {$ACME_EMAIL}
+	# Host port 80 belongs to another site, so no HTTP->HTTPS redirect.
+	auto_https disable_redirects
 }
 
 {$DOMAIN} {
+	# Prove domain ownership over port 443 only (TLS-ALPN), not port 80.
+	tls {
+		issuer acme {
+			disable_http_challenge
+		}
+	}
+
 	encode zstd gzip
 
 	# Prometheus metrics are internal only.

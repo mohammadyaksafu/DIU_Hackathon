@@ -49,7 +49,9 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
-    ports: ["80:80", "443:443", "443:443/udp"]
+    # Host port 80 is used by another site on this VPS, so publish only 443
+    # (the certificate is obtained via the TLS-ALPN challenge, see Caddyfile).
+    ports: ["443:443", "443:443/udp"]
     environment:
       DOMAIN: ${DOMAIN}
       ACME_EMAIL: ${ACME_EMAIL:-}
