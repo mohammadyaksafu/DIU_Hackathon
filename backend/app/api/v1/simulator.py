@@ -1,0 +1,138 @@
+"""Customer wallet simulator: demo customers and one-click scenarios for the live demo.
+
+Scenarios prepare realistic context (e.g. a SIM swap, a stranger's bait transfer) and
+return the transfer to score. Scoring still goes through the normal /score endpoint.
+"""
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+
+from app.api.deps import state_dep
+from app.core.security import Principal, require_roles
+from app.features.engine import DAY, HOUR
+from app.services.scoring import ingest_committed
+from app.services.state import AppState
+
+router = APIRouter(prefix="/simulator", tags=["simulator"])
+
+SCENARIOS = [
+    {"key": "normal_contact", "title": "Send money to family", "expected": "ALLOW",
+     "description": "A usual transfer to a frequent contact, from the usual phone."},
+    {"key": "merchant_payment", "title": "Pay a shop", "expected": "ALLOW",
+     "description": "Payment to a merchant this customer already uses."},
+    {"key": "prize_scam", "title": "'You won a prize' scam", "expected": "WARN/HOLD",
+     "description": "A caller says you won a prize and must pay a 2,000 BDT fee to a number you have never paid."},
+    {"key": "refund_scam", "title": "'Wrong send' refund scam", "expected": "WARN/HOLD",
+     "description": "A stranger sends 500 BDT, calls to say it was a mistake, and asks for a 5,000 BDT 'refund' to another number."},
+    {"key": "account_takeover", "title": "Account takeover at night", "expected": "HOLD",
+     "description": "SIM swapped 2 hours ago, PIN reset 10 minutes ago, new phone drains the wallet."},
+    {"key": "structuring", "title": "Structured cash-outs", "expected": "WARN/HOLD",
+     "description": "Second cash-out today just below the 25,000 BDT limit at the same agent."},
+]
+
+
+def _ring_wallets(state: AppState) -> tuple[list[str], list[str]]:
+    rings = state.data_meta.get("rings") or []
+    if not rings:
+        raise HTTPException(503, "no synthetic ring metadata available")
+    last = rings[-1]
+    return last["collectors"], last["forwarders"] or last["collectors"]
+
+
+def _current_device(state: AppState, wallet: str) -> str | None:
+    st = state.engine.wallets.get(wallet)
+    if not st or not st.devices:
+        return None
+    return max(st.devices.items(), key=lambda kv: kv[1])[0]
+
+
+def _top_contact(state: AppState, wallet: str, prefix: str) -> str | None:
+    st = state.engine.wallets.get(wallet)
+    if not st:
+        return None
+    ranked = sorted(((n, w) for w, n in st.known_out.items() if w.startswith(prefix)), reverse=True)
+    return ranked[0][1] if ranked else None
+
+
+@router.get("/customers")
+def demo_customers(state: AppState = Depends(state_dep), p: Principal = Depends(require_roles("customer"))) -> list[dict]:
+    if state.customers is None:
+        return []
+    df = state.customers[state.customers.synthetic_role == "normal"]
+    df = df[df.signup_ts < state.sim_origin - 120 * DAY]
+    out = []
+    for persona in ["remittance_receiver", "garments_worker", "student", "professional", "shopkeeper", "fcommerce_seller", "freelancer"]:
+        ids = [i for i in df[df.persona == persona].index if state.engine.wallets.get(i) and state.engine.wallets[i].n_out >= 15]
+        for cid in ids[:2]:
+            row = df.loc[cid]
+            summary = state.engine.wallet_summary(cid)
+            out.append({
+                "id": cid, "name": row["name"], "persona": persona, "division": row["division"], "age_band": row["age_band"],
+                "kyc_level": int(row["kyc_level"]), "home_geo": row["home_geo"], "device_id": _current_device(state, cid),
+                "typical_amount": summary.get("typical_amount"), "phone": row["phone"],
+            })
+    return out
+
+
+@router.get("/scenarios")
+def list_scenarios(p: Principal = Depends(require_roles("customer"))) -> list[dict]:
+    return SCENARIOS
+
+
+class RunScenario(BaseModel):
+    customer_id: str
+    scenario: str
+
+
+@router.post("/scenarios/run")
+def run_scenario(body: RunScenario, state: AppState = Depends(state_dep),
+                 p: Principal = Depends(require_roles("customer"))) -> dict:
+    """Apply the scenario's context (events / prior transfers) and return the transfer to score."""
+    if state.customers is None or body.customer_id not in state.customers.index:
+        raise HTTPException(404, "unknown customer")
+    cid = body.customer_id
+    cust = state.customers.loc[cid]
+    now = state.sim_now()
+    device = _current_device(state, cid)
+    typical = state.engine.wallet_summary(cid).get("typical_amount") or 500.0
+    base = {"sender": cid, "device_id": device, "geo_cell": cust["home_geo"], "channel": "app"}
+    setup: list[str] = []
+
+    if body.scenario == "normal_contact":
+        to = _top_contact(state, cid, "C")
+        if to is None:
+            raise HTTPException(409, "customer has no contacts")
+        tx = {**base, "type": "send_money", "receiver": to, "amount": float(round(typical / 10) * 10)}
+    elif body.scenario == "merchant_payment":
+        to = _top_contact(state, cid, "M0") or "M0001"
+        tx = {**base, "type": "payment", "receiver": to, "amount": float(round(typical * 0.8 / 10) * 10)}
+    elif body.scenario == "prize_scam":
+        collectors, _ = _ring_wallets(state)
+        tx = {**base, "type": "send_money", "receiver": collectors[0], "amount": 2000.0}
+    elif body.scenario == "refund_scam":
+        collectors, forwarders = _ring_wallets(state)
+        bait = {"tx_id": None, "ts": now - 12 * 60, "type": "send_money", "amount": 500.0, "sender": forwarders[0],
+                "receiver": cid, "device_id": None, "geo_cell": None}
+        ingest_committed(state, bait)
+        setup.append(f"{forwarders[0]} sent 500 BDT to {cid} 12 minutes ago (bait)")
+        tx = {**base, "type": "send_money", "receiver": collectors[-1], "amount": 5000.0}
+    elif body.scenario == "account_takeover":
+        collectors, _ = _ring_wallets(state)
+        with state.lock:
+            state.engine.ingest_event({"wallet": cid, "event": "sim_swap", "ts": now - 2 * HOUR})
+            state.engine.ingest_event({"wallet": cid, "event": "password_reset", "ts": now - 10 * 60})
+        setup += ["SIM swap 2 hours ago", "PIN reset 10 minutes ago"]
+        amount = float(min(24_000, max(3000, round(typical * 8 / 100) * 100)))
+        tx = {**base, "type": "send_money", "receiver": collectors[0], "amount": amount,
+              "device_id": f"DNEW-{cid}", "geo_cell": "CHA-07" if not str(cust["home_geo"]).startswith("CHA") else "DHA-03"}
+    elif body.scenario == "structuring":
+        agent = _top_contact(state, cid, "A") or "A001"
+        first = {"tx_id": None, "ts": now - 50 * 60, "type": "cash_out", "amount": 24_700.0, "sender": cid,
+                 "receiver": agent, "device_id": device, "geo_cell": cust["home_geo"]}
+        ingest_committed(state, first)
+        setup.append(f"Cash-out of 24,700 BDT at {agent} 50 minutes ago")
+        tx = {**base, "type": "cash_out", "receiver": agent, "amount": 24_850.0}
+    else:
+        raise HTTPException(404, "unknown scenario")
+    return {"scenario": body.scenario, "setup": setup, "transaction": tx}

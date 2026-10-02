@@ -1,0 +1,42 @@
+# One command: docker compose up --build   ->  web http://localhost:3000 · API http://localhost:8000/docs
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: shurokkha
+      POSTGRES_PASSWORD: shurokkha
+      POSTGRES_DB: shurokkha
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shurokkha"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql://shurokkha:shurokkha@postgres:5432/shurokkha
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET:-local-dev-secret-change-me}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-demo123}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CORS_ORIGINS: http://localhost:3000
+    ports: ["8000:8000"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+        NEXT_PUBLIC_DEMO_PASSWORD: ${DEMO_PASSWORD:-demo123}
+    ports: ["3000:3000"]
+    depends_on: [api]
+
+volumes:
+  pgdata:

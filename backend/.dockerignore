@@ -1,0 +1,9 @@
+.venv
+__pycache__
+*.pyc
+data
+reports
+models/registry/lgbm-*
+models/registry/ACTIVE
+.pytest_cache
+.env

@@ -1,0 +1,17 @@
+# Detector plugin registry. Order matters: later detectors can read earlier outputs
+# (the LightGBM model consumes the anomaly score as a feature).
+# To add a detector: create app/detectors/<name>.py with a class implementing
+# `score(ctx) -> Signal`, then add an entry here.
+detectors:
+  - name: rules
+    class: app.detectors.rules:RulesDetector
+    enabled: true
+  - name: anomaly
+    class: app.detectors.anomaly:AnomalyDetector
+    enabled: true
+  - name: lgbm
+    class: app.detectors.lgbm:LightGBMDetector
+    enabled: true
+  - name: graph
+    class: app.detectors.graph:GraphDetector
+    enabled: true

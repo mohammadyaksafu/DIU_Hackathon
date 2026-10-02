@@ -1,0 +1,33 @@
+# Deterministic, regulator-friendly guardrail rules (kept separate from ML).
+# Each rule: expression over features -> score (0..1) + reason code.
+# Add a rule here and it is live on the next policy reload; no code change needed.
+rules:
+  - name: ATO_COMBO
+    description: Recent SIM swap + new device + unusually large outgoing amount
+    when: "hrs_since_sim_swap < 24 and recent_device == 1 and amount_ratio >= 3"
+    score: 0.95
+    reason: R_ATO_COMBO
+
+  - name: PWD_RESET_NEW_DEVICE
+    description: Password reset within 2h, from a never-seen device, sending money
+    when: "hrs_since_pwd_reset < 2 and recent_device == 1 and type_code == 0"
+    score: 0.8
+    reason: R_PASSWORD_RESET_RECENT
+
+  - name: STRUCTURING
+    description: Repeated cash-outs just below the per-transaction limit
+    when: "near_limit == 1 and s_cashout_cnt_24h >= 1"
+    score: 0.75
+    reason: R_STRUCTURING
+
+  - name: MULE_FANIN
+    description: First payment to a young wallet that is receiving from many new senders
+    when: "is_new_recipient == 1 and r_new_senders_24h >= 8 and r_tenure_days < 45"
+    score: 0.5   # supporting evidence only: online sellers legitimately look like this
+    reason: R_RECIPIENT_HIGH_FANIN
+
+  - name: REFUND_SCAM
+    description: Money from a stranger, then a larger 'refund' to another stranger
+    when: "s_new_sender_inflow_1h == 1 and is_new_recipient == 1 and amount_ratio >= 2"
+    score: 0.65
+    reason: R_REFUND_PATTERN

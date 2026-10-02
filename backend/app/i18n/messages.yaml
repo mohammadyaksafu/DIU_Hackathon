@@ -1,0 +1,84 @@
+# Reason-code and decision templates (English + Bangla).
+# Customer-facing text is deterministic and never depends on the LLM.
+# Placeholders: {fanin} {ratio} {hours_sim} {hours_pwd} {tenure} {mins} {limit} {cnt_1h}
+reasons:
+  R_NEW_RECIPIENT:
+    en: "You have never sent money to this number before."
+    bn: "আপনি আগে কখনো এই নম্বরে টাকা পাঠাননি।"
+  R_RECIPIENT_HIGH_FANIN:
+    en: "{fanin} different new people sent money to this number in the last 24 hours."
+    bn: "গত ২৪ ঘণ্টায় {fanin} জন নতুন মানুষ এই নম্বরে টাকা পাঠিয়েছেন।"
+  R_UNUSUAL_AMOUNT:
+    en: "This amount is about {ratio}× larger than your usual transfers."
+    bn: "এই পরিমাণ আপনার সাধারণ লেনদেনের চেয়ে প্রায় {ratio} গুণ বেশি।"
+  R_ROUND_AMOUNT:
+    en: "Sending a round amount to a new number is common in 'prize' or 'fee' scams."
+    bn: "নতুন নম্বরে পুরো অঙ্কের টাকা পাঠানো 'পুরস্কার' বা 'ফি' প্রতারণায় বেশি দেখা যায়।"
+  R_UNUSUAL_HOUR:
+    en: "You rarely make transactions at this time of day."
+    bn: "আপনি সাধারণত দিনের এই সময়ে লেনদেন করেন না।"
+  R_NEW_DEVICE:
+    en: "This transfer is from a phone that was only recently added to your account."
+    bn: "এই লেনদেনটি এমন একটি ফোন থেকে হচ্ছে যা সম্প্রতি আপনার অ্যাকাউন্টে যুক্ত হয়েছে।"
+  R_SIM_SWAP_RECENT:
+    en: "Your SIM card was replaced {hours_sim} hours ago."
+    bn: "{hours_sim} ঘণ্টা আগে আপনার সিম কার্ড পরিবর্তন করা হয়েছে।"
+  R_PASSWORD_RESET_RECENT:
+    en: "Your PIN/password was reset {hours_pwd} hours ago."
+    bn: "{hours_pwd} ঘণ্টা আগে আপনার পিন/পাসওয়ার্ড রিসেট করা হয়েছে।"
+  R_LOCATION_CHANGE:
+    en: "This transfer is coming from a different area than usual."
+    bn: "এই লেনদেনটি আপনার সাধারণ এলাকার বাইরে থেকে হচ্ছে।"
+  R_YOUNG_RECIPIENT_ACCOUNT:
+    en: "The receiving account was opened only {tenure} days ago."
+    bn: "যে অ্যাকাউন্টে টাকা যাচ্ছে সেটি মাত্র {tenure} দিন আগে খোলা হয়েছে।"
+  R_MULE_NETWORK:
+    en: "The receiving account is linked to a group of accounts that collect money from many people and cash it out quickly."
+    bn: "প্রাপক অ্যাকাউন্টটি এমন একটি চক্রের সাথে যুক্ত, যারা অনেকের কাছ থেকে টাকা নিয়ে দ্রুত ক্যাশ আউট করে।"
+  R_RAPID_FORWARDING:
+    en: "The receiving account forwards almost all the money it receives within hours."
+    bn: "প্রাপক অ্যাকাউন্টটি প্রাপ্ত প্রায় সব টাকা কয়েক ঘণ্টার মধ্যেই অন্যত্র পাঠিয়ে দেয়।"
+  R_RAPID_CASHOUT_AFTER_INFLOW:
+    en: "Money is being moved out {mins} minutes after it arrived."
+    bn: "টাকা আসার মাত্র {mins} মিনিট পরেই তা বের করে নেওয়া হচ্ছে।"
+  R_REFUND_PATTERN:
+    en: "A stranger sent you money recently. Scammers often ask for a larger 'refund'. Check your real balance first."
+    bn: "সম্প্রতি একজন অপরিচিত ব্যক্তি আপনাকে টাকা পাঠিয়েছেন। প্রতারকরা প্রায়ই বেশি টাকা 'ফেরত' চায়। আগে আপনার আসল ব্যালেন্স যাচাই করুন।"
+  R_STRUCTURING:
+    en: "Repeated cash-outs just below the {limit} BDT limit."
+    bn: "বারবার {limit} টাকার সীমার ঠিক নিচে ক্যাশ আউট করা হচ্ছে।"
+  R_HIGH_VELOCITY:
+    en: "Many transfers in a short time ({cnt_1h} in the last hour)."
+    bn: "অল্প সময়ে অনেকগুলো লেনদেন (গত এক ঘণ্টায় {cnt_1h}টি)।"
+  R_BEHAVIOUR_ANOMALY:
+    en: "This transfer looks very different from your normal behaviour."
+    bn: "এই লেনদেনটি আপনার স্বাভাবিক আচরণ থেকে অনেক আলাদা।"
+  R_NEW_ACCOUNT:
+    en: "Your account is new, so unusual transfers are checked more carefully."
+    bn: "আপনার অ্যাকাউন্টটি নতুন, তাই অস্বাভাবিক লেনদেন আরও সতর্কভাবে যাচাই করা হয়।"
+  R_ATO_COMBO:
+    en: "SIM change + new phone + large transfer: this matches account-takeover attacks."
+    bn: "সিম পরিবর্তন + নতুন ফোন + বড় অঙ্কের লেনদেন: এটি অ্যাকাউন্ট দখলের আক্রমণের সাথে মিলে যায়।"
+
+decisions:
+  ALLOW:
+    title:
+      en: "Transfer looks safe"
+      bn: "লেনদেনটি নিরাপদ মনে হচ্ছে"
+    body:
+      en: "No unusual risk found."
+      bn: "কোনো অস্বাভাবিক ঝুঁকি পাওয়া যায়নি।"
+  WARN:
+    title:
+      en: "Wait, this may be a scam"
+      bn: "একটু থামুন, এটি প্রতারণা হতে পারে"
+    body:
+      en: "upay never asks you to pay a fee to receive a prize, and never asks for your PIN or OTP. If someone is pressuring you on the phone, hang up. You can cancel, or wait and decide later."
+      bn: "upay কখনো পুরস্কার পেতে ফি চায় না এবং কখনো আপনার পিন বা ওটিপি চায় না। কেউ ফোনে চাপ দিলে ফোন কেটে দিন। আপনি লেনদেনটি বাতিল করতে পারেন, অথবা পরে সিদ্ধান্ত নিতে পারেন।"
+  HOLD:
+    title:
+      en: "Transfer paused for your safety"
+      bn: "আপনার নিরাপত্তার জন্য লেনদেনটি সাময়িকভাবে স্থগিত"
+    body:
+      en: "Our team will verify this transfer shortly. Your money has not left your account. If you did not make this request, contact upay support using the number shown in the official app."
+      bn: "আমাদের টিম শিগগিরই লেনদেনটি যাচাই করবে। আপনার টাকা অ্যাকাউন্ট থেকে বের হয়নি। আপনি এই অনুরোধ না করে থাকলে, অফিসিয়াল অ্যাপে দেখানো নম্বরে upay সাপোর্টে যোগাযোগ করুন।"

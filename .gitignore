@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+backend/data/*
+!backend/data/.gitkeep
+backend/reports/*
+!backend/reports/.gitkeep
+backend/models/registry/lgbm-*
+backend/models/registry/ACTIVE
+# Node
+frontend/node_modules/
+frontend/.next/
+frontend/*.tsbuildinfo
+frontend/next-env.d.ts
+# Secrets
+.env
+.env.local
+*.env
+!.env.example
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

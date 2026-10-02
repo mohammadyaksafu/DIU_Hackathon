@@ -1,0 +1,36 @@
+# Shurokkha decision policy. Hot-reloaded: edit and save, or POST /api/v1/admin/policy/reload.
+#
+# Expressions are evaluated by a restricted, sandboxed evaluator (app/policy/expr.py).
+# Available names:
+#   detector scores : lgbm, anomaly, graph, rules   (0..1; missing detector => 0)
+#   variables       : everything under `variables` (after segment overrides)
+#   features        : any feature from the feature registry (e.g. s_tenure_days, amount)
+#   functions       : rule_hit('RULE_NAME'), min, max, abs
+version: 3
+
+variables:
+  # "model" means: use the threshold learned on the validation set and stored in the
+  # active model's registry metadata. Replace with a number to override.
+  warn_t: model
+  hold_t: model
+  anomaly_warn_pct: 0.995
+  graph_warn: 0.70
+
+# Evaluated in order; the first matching tier wins.
+tiers:
+  - action: HOLD
+    when: "lgbm >= hold_t or rules >= 0.9"
+  - action: WARN
+    when: "lgbm >= warn_t or rules >= 0.6 or (anomaly >= anomaly_warn_pct and lgbm >= warn_t * 0.5) or (graph >= graph_warn and is_new_recipient == 1 and lgbm >= warn_t * 0.3)"
+  - action: ALLOW
+    when: "true"
+
+# Segment overrides adjust variables for a sub-population before tiers are evaluated.
+segment_overrides:
+  - name: protect_new_accounts
+    when: "s_tenure_days < 30"
+    set:
+      warn_t: "warn_t * 0.8"   # values may be numbers or expressions
+
+limits:
+  max_daily_alerts: 200

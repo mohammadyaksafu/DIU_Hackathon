@@ -1,0 +1,7 @@
+# Feature flags: toggle capabilities without redeploying. Exposed at GET /api/v1/admin/flags
+# so the frontend can show/hide panels.
+copilot_enabled: true
+graph_view_enabled: true
+batch_scoring_enabled: true
+customer_bangla_default: true
+cooling_off_minutes: 30
