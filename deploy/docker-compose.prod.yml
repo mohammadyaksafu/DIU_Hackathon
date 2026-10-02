@@ -1,0 +1,66 @@
+# Production stack for a single VPS: Caddy (HTTPS) -> web (Next.js) + api (FastAPI) -> Postgres, Redis.
+# Run from this folder:  docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+# Only Caddy publishes ports (80/443). Everything else stays on the private Docker network.
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: shurokkha
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: shurokkha
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shurokkha"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  api:
+    build: ../backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://shurokkha:${POSTGRES_PASSWORD}@postgres:5432/shurokkha
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:?set DEMO_PASSWORD in .env}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CORS_ORIGINS: https://${DOMAIN}
+      # Trust X-Forwarded-For from Caddy so rate limiting is per real client IP,
+      # not one shared bucket for everyone behind the proxy.
+      FORWARDED_ALLOW_IPS: "*"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+
+  web:
+    build:
+      context: ../frontend
+      args:
+        # Same origin as the site: Caddy routes /api/* to the API container.
+        NEXT_PUBLIC_API_URL: https://${DOMAIN:?set DOMAIN in .env}
+        NEXT_PUBLIC_DEMO_PASSWORD: ${DEMO_PASSWORD}
+    restart: unless-stopped
+    depends_on: [api]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+      ADMIN_ALLOW_IPS: ${ADMIN_ALLOW_IPS:-127.0.0.1}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [web, api]
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,35 @@
+# Caddy gets and renews the HTTPS certificate for {$DOMAIN} automatically.
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# Prometheus metrics are internal only.
+	@metrics path /metrics
+	handle @metrics {
+		respond 404
+	}
+
+	# Optional: only allow your own IP(s) to use the Admin page and admin API
+	# (see docs/DEPLOY_VPS.md, step 7). Uncomment after setting ADMIN_ALLOW_IPS in .env.
+	# @adminblocked {
+	# 	path /admin /admin/* /api/v1/admin/*
+	# 	not client_ip {$ADMIN_ALLOW_IPS}
+	# }
+	# handle @adminblocked {
+	# 	respond "Admin is restricted" 403
+	# }
+
+	# Backend: REST API, health checks, interactive API docs.
+	@api path /api/* /health/* /docs /docs/* /openapi.json /redoc
+	handle @api {
+		reverse_proxy api:8000
+	}
+
+	# Everything else: the Next.js web app.
+	handle {
+		reverse_proxy web:3000
+	}
+}
