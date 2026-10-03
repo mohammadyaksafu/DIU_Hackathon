@@ -17,10 +17,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className="min-h-screen bg-page text-ink">
         <Nav />
-        <main className="mx-auto max-w-7xl px-4 py-6">{children}</main>
+        <main className="animate-rise mx-auto max-w-7xl px-4 py-8">{children}</main>
         <ChatLauncher />
-        <footer className="mx-auto max-w-7xl px-4 pb-8 text-xs text-muted">
-          Shurokkha prototype · AI DEV FEST 2026 · DIU CPC × upay hackathon · synthetic data only
+        <footer className="border-t border-line/70">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-6 text-xs text-muted">
+            <span><strong className="font-semibold text-ink-2">Shurokkha</strong> prototype · AI DEV FEST 2026 · DIU CPC × upay hackathon</span>
+            <span>Synthetic data only · The AI explains, humans decide</span>
+          </div>
         </footer>
       </body>
     </html>

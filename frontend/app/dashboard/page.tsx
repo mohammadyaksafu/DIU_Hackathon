@@ -2,7 +2,7 @@
 
 import { Bar, BarChart, CartesianGrid, LabelList, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
-import { Card, ErrorBox, Spinner, StatTile, useApi } from "@/components/ui";
+import { Card, ErrorBox, PageHeader, RefreshButton, Spinner, StatTile, useApi } from "@/components/ui";
 import { api, fmtBDT, fmtPct } from "@/lib/api";
 
 interface Metrics {
@@ -67,16 +67,12 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h1 className="text-xl font-semibold text-ink">Impact &amp; model quality</h1>
-          <p className="text-sm text-ink-2">
-            Held-out test window: last {m.system.test_days} days ({m.system.test_transactions.toLocaleString()} transactions), never used for training or thresholds.
-            Model <code className="text-ink">{data.model_version}</code>.
-          </p>
-        </div>
-        <button onClick={reload} className="text-sm text-brand underline">Refresh</button>
-      </div>
+      <PageHeader eyebrow="Impact" title="Impact &amp; model quality"
+        description={<>
+          Held-out test window: last {m.system.test_days} days ({m.system.test_transactions.toLocaleString()} transactions), never used for training or thresholds.
+          Model <code className="text-ink">{data.model_version}</code>.
+        </>}
+        actions={<RefreshButton onClick={reload} />} />
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6" aria-label="Headline metrics">
         <StatTile label="PR-AUC" value={m.model.pr_auc.toFixed(3)} hint={`ROC-AUC ${m.model.roc_auc.toFixed(3)}`} />

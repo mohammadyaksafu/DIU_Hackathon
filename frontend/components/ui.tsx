@@ -8,11 +8,11 @@ export function Card({ title, subtitle, actions, children, className = "" }: {
   title?: ReactNode; subtitle?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string;
 }) {
   return (
-    <section className={`rounded-xl border border-line bg-surface p-4 sm:p-5 ${className}`}>
+    <section className={`rounded-2xl border border-line bg-surface p-4 shadow-card sm:p-5 ${className}`}>
       {(title || actions) && (
-        <header className="mb-3 flex flex-wrap items-start justify-between gap-2">
+        <header className="mb-4 flex flex-wrap items-start justify-between gap-2">
           <div>
-            {title && <h2 className="text-sm font-semibold text-ink">{title}</h2>}
+            {title && <h2 className="text-[0.95rem] font-semibold tracking-tight text-ink">{title}</h2>}
             {subtitle && <p className="mt-0.5 text-xs text-muted">{subtitle}</p>}
           </div>
           {actions}
@@ -20,6 +20,33 @@ export function Card({ title, subtitle, actions, children, className = "" }: {
       )}
       {children}
     </section>
+  );
+}
+
+/** Consistent page title block: optional eyebrow, title, description and right-side actions. */
+export function PageHeader({ eyebrow, title, description, actions }: {
+  eyebrow?: ReactNode; title: ReactNode; description?: ReactNode; actions?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-3 pb-1">
+      <div className="min-w-0">
+        {eyebrow && <p className="text-xs font-semibold uppercase tracking-wider text-brand">{eyebrow}</p>}
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink">{title}</h1>
+        {description && <p className="mt-1 max-w-3xl text-sm text-ink-2">{description}</p>}
+      </div>
+      {actions && <div className="flex items-center gap-2">{actions}</div>}
+    </div>
+  );
+}
+
+export function RefreshButton({ onClick, busy }: { onClick: () => void; busy?: boolean }) {
+  return (
+    <Button variant="secondary" onClick={onClick} disabled={busy}>
+      <svg viewBox="0 0 24 24" className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+        <path d="M21 12a9 9 0 1 1-2.64-6.36M21 4v5h-5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      Refresh
+    </Button>
   );
 }
 
@@ -50,14 +77,14 @@ export function Button({ children, onClick, variant = "primary", disabled, type 
   disabled?: boolean; type?: "button" | "submit"; className?: string;
 }) {
   const styles = {
-    primary: "bg-brand text-brand-ink hover:opacity-90",
-    secondary: "border border-line bg-surface text-ink hover:bg-surface-2",
-    danger: "bg-critical text-white hover:opacity-90",
+    primary: "bg-brand text-brand-ink shadow-raised hover:brightness-110",
+    secondary: "border border-line bg-surface text-ink shadow-card hover:border-axis hover:bg-surface-2",
+    danger: "bg-critical text-white shadow-raised hover:brightness-110",
     ghost: "text-ink-2 hover:bg-surface-2",
   }[variant];
   return (
     <button type={type} onClick={onClick} disabled={disabled}
-      className={`inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${styles} ${className}`}>
+      className={`inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-medium transition active:scale-[0.98] disabled:active:scale-100 disabled:cursor-not-allowed disabled:opacity-50 ${styles} ${className}`}>
       {children}
     </button>
   );
@@ -65,9 +92,10 @@ export function Button({ children, onClick, variant = "primary", disabled, type 
 
 export function StatTile({ label, value, hint }: { label: string; value: ReactNode; hint?: ReactNode }) {
   return (
-    <div className="rounded-xl border border-line bg-surface p-4">
+    <div className="group relative overflow-hidden rounded-2xl border border-line bg-surface p-4 shadow-card transition hover:-translate-y-0.5 hover:shadow-raised">
+      <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-brand to-brand-2 opacity-70 transition group-hover:opacity-100" aria-hidden />
       <div className="text-xs font-medium text-muted">{label}</div>
-      <div className="mt-1 text-2xl font-semibold text-ink">{value}</div>
+      <div className="tabular mt-1.5 text-2xl font-semibold tracking-tight text-ink">{value}</div>
       {hint && <div className="mt-1 text-xs text-ink-2">{hint}</div>}
     </div>
   );
@@ -84,7 +112,7 @@ export function Spinner({ label = "Loading" }: { label?: string }) {
 
 export function ErrorBox({ error, onRetry }: { error: string; onRetry?: () => void }) {
   return (
-    <div className="rounded-lg border border-critical/40 bg-critical-soft p-3 text-sm text-critical-text" role="alert">
+    <div className="rounded-xl border border-critical/40 bg-critical-soft p-3 text-sm text-critical-text" role="alert">
       <strong>Something went wrong.</strong> {error}
       {onRetry && (
         <button onClick={onRetry} className="ml-2 underline">Retry</button>

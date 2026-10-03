@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import { Card, DecisionBadge, ErrorBox, Pill, Spinner, useApi } from "@/components/ui";
+import { Card, DecisionBadge, ErrorBox, PageHeader, Pill, RefreshButton, Spinner, useApi } from "@/components/ui";
 import { api, fmtBDT, fmtTime } from "@/lib/api";
 import type { AlertSummary } from "@/lib/types";
 
@@ -33,13 +33,9 @@ export default function AnalystQueue() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-ink">Alert queue</h1>
-          <p className="text-sm text-ink-2">Ranked by calibrated risk. HOLD cases block a transfer until reviewed (SOP-05: 15-minute target).</p>
-        </div>
-        <button onClick={reload} className="text-sm text-brand underline">Refresh</button>
-      </div>
+      <PageHeader eyebrow="Analyst console" title="Alert queue"
+        description="Ranked by calibrated risk. HOLD cases block a transfer until reviewed (SOP-05: 15-minute target)."
+        actions={<RefreshButton onClick={reload} busy={loading} />} />
 
       <div className="flex flex-wrap gap-2" role="group" aria-label="Filters">
         <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} className="rounded-lg border border-line bg-surface px-3 py-2 text-sm">
@@ -66,7 +62,7 @@ export default function AnalystQueue() {
           <div className={`overflow-x-auto ${loading ? "opacity-60" : ""}`}>
             <table className="w-full min-w-[760px] text-sm">
               <thead>
-                <tr className="border-b border-line text-left text-xs text-muted">
+                <tr className="border-b border-line text-left text-[11px] uppercase tracking-wider text-muted">
                   <th className="py-2 pr-3 font-medium">Alert</th>
                   <th className="py-2 pr-3 font-medium">Decision</th>
                   <th className="py-2 pr-3 text-right font-medium">Risk</th>
@@ -79,7 +75,7 @@ export default function AnalystQueue() {
               </thead>
               <tbody>
                 {data?.items.map((a) => (
-                  <tr key={a.id} className="border-b border-line/70 hover:bg-surface-2">
+                  <tr key={a.id} className="border-b border-line/70 transition-colors hover:bg-brand-soft/40">
                     <td className="py-2 pr-3">
                       <Link href={`/analyst/cases/${a.id}`} className="font-medium text-brand underline-offset-2 hover:underline">#{a.id}</Link>
                       {a.source === "live" && <span className="ml-1"><Pill tone="brand">live</Pill></span>}
@@ -106,9 +102,9 @@ export default function AnalystQueue() {
           <div className="mt-3 flex items-center justify-between text-sm text-ink-2">
             <span className="tabular">{data.total.toLocaleString()} alerts</span>
             <div className="flex items-center gap-2">
-              <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="rounded-md border border-line px-2 py-1 disabled:opacity-40">Prev</button>
+              <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="rounded-lg border border-line bg-surface px-3 py-1.5 shadow-card transition hover:bg-surface-2 disabled:opacity-40">Prev</button>
               <span className="tabular">{page} / {pages}</span>
-              <button disabled={page >= pages} onClick={() => setPage(page + 1)} className="rounded-md border border-line px-2 py-1 disabled:opacity-40">Next</button>
+              <button disabled={page >= pages} onClick={() => setPage(page + 1)} className="rounded-lg border border-line bg-surface px-3 py-1.5 shadow-card transition hover:bg-surface-2 disabled:opacity-40">Next</button>
             </div>
           </div>
         )}

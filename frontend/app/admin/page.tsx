@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { Button, Card, ErrorBox, Pill, Spinner, useApi } from "@/components/ui";
+import { Button, Card, ErrorBox, PageHeader, Pill, Spinner, useApi } from "@/components/ui";
 import { api, health } from "@/lib/api";
 
 interface ModelInfo {
@@ -42,11 +42,9 @@ export default function AdminPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold text-ink">Admin: adapt without redeploying</h1>
-        <p className="text-sm text-ink-2">Edit the decision policy live, switch model versions, refresh the graph. Every change is validated and audited.</p>
-      </div>
-      {msg && <div className="rounded-lg border border-line bg-surface p-3 text-sm text-ink" role="status">{msg}</div>}
+      <PageHeader eyebrow="Admin" title="Adapt without redeploying"
+        description="Edit the decision policy live, switch model versions, refresh the graph. Every change is validated and audited." />
+      {msg && <div className="rounded-xl border border-brand/30 bg-brand-soft p-3 text-sm text-ink" role="status">{msg}</div>}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card title="Decision policy (policy.yaml)" subtitle={policy.data ? `version ${policy.data.version} · hot-reloaded on save` : undefined} className="lg:col-span-2"

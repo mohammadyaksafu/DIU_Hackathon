@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 
-import { Button, Card, ErrorBox, Pill } from "@/components/ui";
+import { Button, Card, ErrorBox, PageHeader, Pill } from "@/components/ui";
 import { api } from "@/lib/api";
 
 interface Answer {
@@ -45,10 +45,8 @@ export default function CopilotPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold text-ink">SOP copilot</h1>
-        <p className="text-sm text-ink-2">Answers come only from the approved procedure documents (retrieval-augmented). Each answer cites its sources.</p>
-      </div>
+      <PageHeader eyebrow="SOP copilot" title="Ask the procedures"
+        description="Answers come only from the approved procedure documents (retrieval-augmented). Each answer cites its sources." />
       <form onSubmit={(e) => ask(q, e)} className="flex gap-2">
         <input value={q} onChange={(e) => setQ(e.target.value)} maxLength={500} placeholder="Ask about a procedure…"
           className="flex-1 rounded-lg border border-line bg-surface px-3 py-2 text-sm" aria-label="Question" />
