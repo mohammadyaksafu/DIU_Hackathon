@@ -128,7 +128,8 @@ export default function CustomerPage() {
             <div className="rounded-t-[1.4rem] bg-brand px-5 pb-5 pt-4 text-brand-ink">
               <div className="flex items-center justify-between text-xs opacity-90">
                 <span>upay · demo wallet</span>
-                <button onClick={() => setLang(lang === "bn" ? "en" : "bn")} className="rounded-full border border-current px-2 py-0.5" aria-label="Switch language">
+                <button onClick={() => setLang(lang === "bn" ? "en" : "bn")} className="rounded-full border border-current px-2 py-0.5"
+                  aria-label="Switch language" aria-pressed={lang === "en"}>
                   {lang === "bn" ? "English" : "বাংলা"}
                 </button>
               </div>
