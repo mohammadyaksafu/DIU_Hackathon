@@ -34,10 +34,12 @@ class Settings(BaseSettings):
     auto_bootstrap: bool = True  # generate data + train when no model exists
 
     # GenAI
-    llm_provider: str = "auto"  # auto | anthropic | none
+    llm_provider: str = "auto"  # auto | gemini | anthropic | none
     llm_model: str = "claude-opus-5-5"
+    gemini_model: str = "gemini-3.8-flash"
     llm_timeout_seconds: float = 30.0
     llm_effort: str = "low"
+    gemini_api_key: str = ""
     anthropic_api_key: str = ""
 
     # Security
@@ -67,6 +69,8 @@ class Settings(BaseSettings):
     def resolved_llm_provider(self) -> str:
         if self.llm_provider != "auto":
             return self.llm_provider
+        if self.gemini_api_key or os.environ.get("GEMINI_API_KEY"):
+            return "gemini"
         has_key = bool(self.anthropic_api_key or os.environ.get("ANTHROPIC_API_KEY"))
         return "anthropic" if has_key else "none"
 

@@ -1,7 +1,8 @@
 """LLM gateway: one interface, pluggable providers, built for failure.
 
-- Provider "anthropic": Claude via the official Anthropic SDK, structured JSON output
-  (output_config.format), bounded timeout, SDK retries, server-side refusal fallback.
+- Provider "gemini": Gemini Interactions API, stateless structured JSON output.
+- Provider "anthropic": Claude via the official Anthropic SDK, bounded timeout,
+  SDK retries, structured output and server-side refusal fallback.
 - Provider "none": always unavailable -> callers use deterministic templates.
 - Circuit breaker: after 3 consecutive failures the provider is skipped for 60 s,
   so a provider outage never slows the analyst console.
@@ -14,6 +15,8 @@ import json
 import logging
 import threading
 import time
+import urllib.error
+import urllib.request
 
 from app.core.config import Settings
 from app.core.metrics import metrics
@@ -64,7 +67,7 @@ class LLMGateway:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self.provider = settings.resolved_llm_provider
-        self.model = settings.llm_model
+        self.model = settings.gemini_model if self.provider == "gemini" else settings.llm_model
         self.breaker = CircuitBreaker()
         self._client = None
 
@@ -94,9 +97,12 @@ class LLMGateway:
             raise LLMUnavailable("circuit open")
         started = time.perf_counter()
         try:
-            if self.provider != "anthropic":
+            if self.provider == "anthropic":
+                data = self._call_anthropic(system, user, schema, max_tokens)
+            elif self.provider == "gemini":
+                data = self._call_gemini(system, user, schema, max_tokens)
+            else:
                 raise LLMUnavailable(f"unsupported provider {self.provider}")
-            data = self._call_anthropic(system, user, schema, max_tokens)
         except LLMUnavailable:
             self.breaker.failure()
             metrics.inc("llm_failures_total", provider=self.provider)
@@ -110,6 +116,44 @@ class LLMGateway:
         metrics.observe_ms("llm_latency_ms", (time.perf_counter() - started) * 1000)
         metrics.inc("llm_calls_total", provider=self.provider)
         return data
+
+    def _call_gemini(self, system: str, user: str, schema: dict, max_tokens: int) -> dict:
+        if not self.settings.gemini_api_key:
+            raise LLMUnavailable("GEMINI_API_KEY is not configured")
+        body = json.dumps({
+            "model": self.model,
+            "input": user,
+            "system_instruction": system,
+            "generation_config": {"max_output_tokens": max_tokens},
+            "response_format": {"type": "text", "mime_type": "application/json", "schema": schema},
+            "store": False,
+        }).encode()
+        request = urllib.request.Request(
+            "https://generativelanguage.googleapis.com/v1beta/interactions",
+            data=body,
+            headers={"Content-Type": "application/json", "x-goog-api-key": self.settings.gemini_api_key},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=self.settings.llm_timeout_seconds) as response:
+                result = json.loads(response.read())
+        except urllib.error.HTTPError as exc:
+            if exc.code == 429:
+                raise LLMUnavailable("Gemini rate limit reached") from exc
+            raise LLMUnavailable(f"Gemini API error: HTTP {exc.code}") from exc
+        except (urllib.error.URLError, TimeoutError) as exc:
+            raise LLMUnavailable(f"Gemini connection error: {exc}") from exc
+
+        text = result.get("output_text")
+        if not text:
+            text = next(
+                (part.get("text") for step in result.get("steps", []) if step.get("type") == "model_output"
+                 for part in step.get("content", []) if part.get("type") == "text"),
+                None,
+            )
+        if not text:
+            raise LLMUnavailable("Gemini returned an empty response")
+        return json.loads(text)
 
     def _call_anthropic(self, system: str, user: str, schema: dict, max_tokens: int) -> dict:
         import anthropic

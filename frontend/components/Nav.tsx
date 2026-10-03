@@ -10,6 +10,7 @@ const LINKS = [
   { href: "/", label: "Overview" },
   { href: "/customer", label: "Customer app" },
   { href: "/analyst", label: "Analyst console" },
+  { href: "/chat", label: "AI chat" },
   { href: "/copilot", label: "SOP copilot" },
   { href: "/dashboard", label: "Impact" },
   { href: "/admin", label: "Admin" },
@@ -48,8 +49,9 @@ export function Nav() {
         <nav className="ml-4 hidden gap-1 md:flex" aria-label="Main">
           {LINKS.map((l) => {
             const active = l.href === "/" ? path === "/" : path.startsWith(l.href);
+            const href = l.href === "/chat" && path.startsWith("/customer") ? "/chat?audience=customer" : l.href;
             return (
-              <Link key={l.href} href={l.href}
+              <Link key={l.href} href={href}
                 className={`rounded-md px-3 py-1.5 text-sm ${active ? "bg-brand-soft font-medium text-brand" : "text-ink-2 hover:bg-surface-2"}`}>
                 {l.label}
               </Link>
@@ -66,11 +68,12 @@ export function Nav() {
       </div>
       {open && (
         <nav className="border-t border-line px-4 py-2 md:hidden" aria-label="Mobile">
-          {LINKS.map((l) => (
-            <Link key={l.href} href={l.href} onClick={() => setOpen(false)} className="block rounded-md px-2 py-2 text-sm text-ink-2 hover:bg-surface-2">
+          {LINKS.map((l) => {
+            const href = l.href === "/chat" && path.startsWith("/customer") ? "/chat?audience=customer" : l.href;
+            return <Link key={l.href} href={href} onClick={() => setOpen(false)} className="block rounded-md px-2 py-2 text-sm text-ink-2 hover:bg-surface-2">
               {l.label}
-            </Link>
-          ))}
+            </Link>;
+          })}
         </nav>
       )}
       <div className="bg-brand-soft px-4 py-1 text-center text-[11px] text-brand">

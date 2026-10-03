@@ -35,6 +35,8 @@ Your PC ──git push──► GitHub (private) ──git clone / git pull─�
 
 The first build trains the model inside the API image (about 3–5 minutes of CPU). Budget 10–15 minutes for the first deploy.
 
+To enable the AI chat and generated case summaries, set `GEMINI_API_KEY` in `deploy/.env` using a key from [Google AI Studio](https://aistudio.google.com/apikey). Keep it on the server; never add it to frontend variables. Gemini free-tier access and quotas depend on current model/account availability. Without a key, SOP lookup still uses its deterministic retrieval fallback.
+
 ## 1. Point your domain at the VPS
 
 At your DNS provider, add an **A record**:
@@ -183,7 +185,9 @@ Fill in:
 | `POSTGRES_PASSWORD` | output of `openssl rand -hex 32` |
 | `JWT_SECRET` | output of another `openssl rand -hex 32` |
 | `DEMO_PASSWORD` | any password for the demo users |
-| `ANTHROPIC_API_KEY` | optional: your key, for Claude-written case summaries |
+| `GEMINI_API_KEY` | optional: key from Google AI Studio for AI chat and summaries (free quota may vary) |
+| `GEMINI_MODEL` | optional: Gemini model id; default `gemini-3.8-flash` |
+| `LLM_PROVIDER` | optional: default `auto`, which prefers Gemini when its key is set |
 
 ```bash
 chmod 600 .env
@@ -199,6 +203,9 @@ ACME_EMAIL=you@example.com
 POSTGRES_PASSWORD=$(openssl rand -hex 32)
 JWT_SECRET=$(openssl rand -hex 32)
 DEMO_PASSWORD=$(openssl rand -hex 8)
+LLM_PROVIDER=auto
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-3.8-flash
 ANTHROPIC_API_KEY=
 ADMIN_ALLOW_IPS=127.0.0.1
 EOF
@@ -307,7 +314,7 @@ Containers restart automatically after a crash or a server reboot (`restart: unl
 | Build stops with `Killed` or `exit code 137` | Out of memory. Add the swap from step 2, or use a 4 GB VPS. |
 | Site loads but the badge says **API offline** | The web image was built with a different `DOMAIN`. The API address is fixed at build time, so after changing `DOMAIN`, rebuild: `dc up -d --build web`. |
 | `502 Bad Gateway` right after starting | The API is still booting. Wait about 30 s and check `dc logs api`. |
-| Copilot shows "Rule-based summary (AI unavailable)" | No `ANTHROPIC_API_KEY` set. Add it to `.env`, then `dc up -d api`. |
+| Copilot shows "Rule-based summary (AI unavailable)" | Add `GEMINI_API_KEY` from Google AI Studio to `.env`, then run `dc up -d api`. Check the model's free-tier quota in AI Studio. |
 | `429 Too Many Requests` | Rate limit (default 1200 requests/min per client IP). Raise it by adding `RATE_LIMIT_PER_MINUTE` under `api.environment` in the compose file. |
 
 ## Notes

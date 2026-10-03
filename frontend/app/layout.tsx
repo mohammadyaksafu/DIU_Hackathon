@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 
+import { ChatLauncher } from "@/components/ChatLauncher";
 import { Nav } from "@/components/Nav";
 
 import "./globals.css";
@@ -17,6 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen bg-page text-ink">
         <Nav />
         <main className="mx-auto max-w-7xl px-4 py-6">{children}</main>
+        <ChatLauncher />
         <footer className="mx-auto max-w-7xl px-4 pb-8 text-xs text-muted">
           Shurokkha prototype · AI DEV FEST 2026 · DIU CPC × upay hackathon · synthetic data only
         </footer>

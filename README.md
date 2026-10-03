@@ -33,7 +33,7 @@ AI DEV FEST 2026 · DIU CPC × upay AI Hackathon · Track 01 *Trust & Risk Intel
 | F4 | Customer wallet simulator with the pre-transaction **scam interrupt** | Deterministic templates (customer text never depends on an LLM) |
 | F5 | Analyst console: ranked queue, case view, feedback loop | Calibrated risk ranking; labels feed retraining |
 | F6 | Money-mule network view | Transaction graph, Louvain communities, PageRank, fan-in / forwarding features |
-| F7 | AI investigation copilot + SOP Q&A | Claude via Anthropic SDK, structured JSON, BM25 retrieval over SOPs, numeric-grounding check, template fallback |
+| F7 | AI investigation copilot + conversational chat | Gemini via server-side API key, page/case-aware answers, BM25 SOP citations, evidence-grounded summaries, deterministic fallbacks |
 | F8 | Impact & fairness dashboard | Held-out metrics, lift table, per-scenario recall, FPR by segment, live latency |
 | F9 | Synthetic data generator with 6 injected fraud scenarios | Seeded simulation of 7 personas, legit look-alikes and labelled fraud |
 | + | Batch / CSV scoring, behaviour anomaly detection | Isolation Forest (compiled single-row scorer, verified equal to scikit-learn) |
@@ -72,7 +72,7 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · model: [docs/MODEL_CARD
 |---|---|
 | Languages | Python 3.10+ (3.11 in Docker), TypeScript |
 | ML | LightGBM 4.7, scikit-learn 1.7 (Isolation Forest, logistic regression baseline), NetworkX 3.4 (Louvain, PageRank), NumPy, pandas, PyArrow |
-| GenAI | Anthropic Python SDK (`anthropic` 1.11), model `claude-opus-5-5` (configurable), structured outputs, server-side refusal fallback; BM25 retrieval (no external vector DB) |
+| GenAI | Gemini Interactions API (stateless structured JSON; configurable model), optional Anthropic provider; BM25 SOP retrieval (no external vector DB) |
 | API | FastAPI 0.115, Pydantic v2, SQLAlchemy 2, PyJWT, Uvicorn |
 | Storage | SQLite (default, WAL) or PostgreSQL; optional Redis cache |
 | Frontend | Next.js 16 (App Router), React 19, Tailwind CSS 4, Recharts 3, d3-force |
@@ -82,7 +82,7 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · model: [docs/MODEL_CARD
 
 - **Python 3.10+** and **Node.js 20.9+** (22 recommended), *or* Docker 24+ with Compose
 - ~2 GB RAM, ~1 GB disk (dependencies + generated data)
-- Optional: an Anthropic API key for AI case summaries (without it the copilot uses deterministic templates)
+- Optional: a Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey) for chat and AI summaries. The free tier has usage limits that depend on the model/account; check current quotas in AI Studio. Without an AI key, the app uses deterministic fallbacks.
 - Optional: PostgreSQL 14+ and Redis 7+ (defaults: SQLite + in-memory cache)
 
 ## 6. Installation & setup
@@ -120,9 +120,11 @@ Backend (`backend/.env`; all optional, safe defaults):
 |---|---|---|
 | `DATABASE_URL` | Postgres URL; empty = SQLite in `backend/data/` | `postgresql://user:pass@host:5432/shurokkha` |
 | `REDIS_URL` | Optional cache; falls back to memory | `redis://localhost:6379/0` |
-| `LLM_PROVIDER` | `auto` (anthropic if key present) · `anthropic` · `none` | `auto` |
-| `ANTHROPIC_API_KEY` | Enables AI case summaries / SOP answers | `<your-key>` |
-| `LLM_MODEL` / `LLM_EFFORT` | Claude model and effort level | `claude-opus-5-5` / `low` |
+| `LLM_PROVIDER` | `auto` (prefers Gemini when configured) · `gemini` · `anthropic` · `none` | `auto` |
+| `GEMINI_API_KEY` | Enables Gemini chat, case summaries, and SOP answers | `<your-ai-studio-key>` |
+| `GEMINI_MODEL` | Gemini model id | `gemini-3.8-flash` |
+| `ANTHROPIC_API_KEY` | Optional alternative provider | `<your-key>` |
+| `LLM_MODEL` / `LLM_EFFORT` | Anthropic model and effort level | `claude-opus-5-5` / `low` |
 | `LLM_TIMEOUT_SECONDS` | Per-call timeout before template fallback | `30` |
 | `JWT_SECRET` | Signs access tokens; **change in production** | `<random-32-bytes>` |
 | `DEMO_PASSWORD` | Password for demo users `customer` / `analyst` / `admin` | `<choose-one>` (default `demo123`) |
@@ -135,6 +137,8 @@ Backend (`backend/.env`; all optional, safe defaults):
 | `GRAPH_REFRESH_SECONDS` | Background graph-snapshot interval | `600` |
 
 Frontend (`frontend/.env.local`): `NEXT_PUBLIC_API_URL` (backend URL), `NEXT_PUBLIC_DEMO_PASSWORD` (must match `DEMO_PASSWORD`).
+
+To enable Gemini, create an API key in Google AI Studio and add `GEMINI_API_KEY=...` to `backend/.env` (or the server's `.env` for Docker). `LLM_PROVIDER=auto` selects Gemini when that key is present; alternatively set `LLM_PROVIDER=gemini`. Never put this key in a `NEXT_PUBLIC_*` variable or the frontend. Requests use Gemini's stateless Interactions API (`store=false`); only synthetic demo data should be used, and free-tier model availability/quotas can change.
 
 ## 8. Run & build commands
 

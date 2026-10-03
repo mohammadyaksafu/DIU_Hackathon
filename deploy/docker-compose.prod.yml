@@ -27,6 +27,9 @@ services:
       REDIS_URL: redis://redis:6379/0
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       DEMO_PASSWORD: ${DEMO_PASSWORD:?set DEMO_PASSWORD in .env}
+      LLM_PROVIDER: ${LLM_PROVIDER:-auto}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       CORS_ORIGINS: https://${DOMAIN}
       # Trust X-Forwarded-For from Caddy so rate limiting is per real client IP,

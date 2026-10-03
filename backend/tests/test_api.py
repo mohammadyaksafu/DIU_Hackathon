@@ -158,6 +158,44 @@ def test_rules_only_mode_when_model_missing(trained):
         state.bundle, state.detectors, state.degraded = saved_bundle, saved_detectors, saved_degraded
 
 
+def test_chat_route_validates_and_forwards_conversation_context(client, analyst_h, customer_h, monkeypatch):
+    from app.api.v1 import cases
+
+    captured = {}
+
+    class FakeCopilot:
+        def chat(self, message, history, page_context, evidence, allow_sop):
+            captured.update(
+                message=message, history=history, page_context=page_context,
+                evidence=evidence, allow_sop=allow_sop,
+            )
+            return {"answer": "Use the approved procedure.", "citations": [], "sources": [], "source": "llm"}
+
+    monkeypatch.setattr(cases, "get_copilot", lambda: FakeCopilot())
+    body = {
+        "message": "What should I do next?",
+        "history": [{"role": "user", "content": "I found an alert."}],
+        "page_context": "/analyst",
+    }
+    response = client.post("/api/v1/copilot/chat", headers=analyst_h, json=body)
+    assert response.status_code == 200, response.text
+    assert response.json()["answer"] == "Use the approved procedure."
+    assert captured == {
+        "message": body["message"],
+        "history": body["history"],
+        "page_context": body["page_context"],
+        "evidence": None,
+        "allow_sop": True,
+    }
+    customer_response = client.post("/api/v1/copilot/chat", headers=customer_h, json={"message": "Is this a scam?"})
+    assert customer_response.status_code == 200, customer_response.text
+    assert captured["allow_sop"] is False and captured["evidence"] is None
+    assert client.post(
+        "/api/v1/copilot/chat", headers=customer_h, json={"message": "Explain case", "alert_id": 1}
+    ).status_code == 403
+    assert client.post("/api/v1/copilot/chat", headers=analyst_h, json={"message": ""}).status_code == 422
+
+
 def test_llm_gateway_circuit_breaker_opens():
     from app.core.config import Settings
     from app.genai.llm_gateway import LLMGateway, LLMUnavailable
@@ -174,6 +212,78 @@ def test_llm_gateway_circuit_breaker_opens():
     assert gw.breaker.state == "open"
     with pytest.raises(LLMUnavailable, match="circuit open"):
         gw.generate_json("s", "u", {"type": "object"})
+
+
+def test_gemini_gateway_uses_stateless_structured_request(monkeypatch):
+    from io import BytesIO
+
+    from app.core.config import Settings
+    from app.genai import llm_gateway
+    from app.genai.llm_gateway import LLMGateway
+
+    captured = {}
+
+    class Response(BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            self.close()
+
+    def fake_urlopen(request, timeout):
+        captured["request"] = request
+        captured["timeout"] = timeout
+        return Response(json.dumps({"output_text": '{"answer":"Grounded reply","citations":[]}'}).encode())
+
+    monkeypatch.setattr(llm_gateway.urllib.request, "urlopen", fake_urlopen)
+    gateway = LLMGateway(Settings(
+        llm_provider="gemini",
+        gemini_api_key="test-key",
+        gemini_model="gemini-test",
+        llm_timeout_seconds=7,
+    ))
+    result = gateway.generate_json("system", "user", {"type": "object"})
+    request = captured["request"]
+    payload = json.loads(request.data)
+
+    assert result == {"answer": "Grounded reply", "citations": []}
+    assert request.full_url == "https://generativelanguage.googleapis.com/v1beta/interactions"
+    assert request.get_header("X-goog-api-key") == "test-key"
+    assert payload["model"] == "gemini-test"
+    assert payload["system_instruction"] == "system"
+    assert payload["generation_config"]["max_output_tokens"] == 4000
+    assert payload["response_format"]["mime_type"] == "application/json"
+    assert payload["store"] is False
+    assert captured["timeout"] == 7
+    automatic = Settings(llm_provider="auto", gemini_api_key="auto-key")
+    assert automatic.resolved_llm_provider == "gemini"
+    assert LLMGateway(automatic).model == automatic.gemini_model
+
+
+def test_chat_answers_general_questions_and_filters_sop_citations():
+    from app.genai.copilot import Copilot
+
+    class FakeRetriever:
+        def search(self, query, k):
+            return [{"id": "SOP-03#1", "title": "Wallet review", "doc": "SOP-03",
+                     "text": "Review the recipient wallet.", "score": 1.0}]
+
+    class FakeGateway:
+        provider = "gemini"
+        model = "gemini-test"
+
+        def generate_json(self, system, user, schema, max_tokens):
+            assert '"decision": "HOLD"' in user
+            return {"answer": "Review the case, then ask me anything else.", "citations": ["SOP-03#1", "FAKE#9"]}
+
+    response = Copilot(FakeGateway(), FakeRetriever()).chat(
+        "What now?", [{"role": "user", "content": "I found a case."}], "/analyst/cases/1",
+        {"alert": {"decision": "HOLD"}},
+    )
+    assert response["source"] == "llm"
+    assert response["provider"] == "gemini"
+    assert response["citations"] == ["SOP-03#1"]
+    assert response["sources"][0]["id"] == "SOP-03#1"
 
 
 def test_copilot_uses_llm_output_when_grounded_and_rejects_hallucination():

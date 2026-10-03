@@ -174,7 +174,41 @@ def case_summary(alert_id: int, refresh: bool = False, state: AppState = Depends
 class AskRequest(BaseModel):
     question: str = Field(min_length=3, max_length=500)
 
+class ChatTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=2000)
+
+
+class ChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
+    history: list[ChatTurn] = Field(default_factory=list, max_length=12)
+    page_context: str = Field(default="", max_length=160)
+    alert_id: int | None = Field(default=None, ge=1)
+
 
 @router.post("/copilot/ask")
 def ask(body: AskRequest, p: Principal = Depends(require_roles("analyst"))) -> dict:
     return get_copilot().ask(body.question)
+
+
+@router.post("/copilot/chat")
+def chat(body: ChatRequest, state: AppState = Depends(state_dep),
+         p: Principal = Depends(require_roles("analyst", "customer"))) -> dict:
+    copilot = get_copilot()
+    evidence = None
+    analyst_context = p.role in ("analyst", "admin")
+    if body.alert_id is not None and not analyst_context:
+        raise HTTPException(403, "Case context is only available to analysts")
+    if body.alert_id is not None:
+        with session_scope() as db:
+            alert = _load(db, body.alert_id)
+            related = _related(db, alert)
+            related.pop("items", None)
+            graph_info = state.graph.snapshot.get(alert.receiver if alert.tx_type != "cash_out" else alert.sender)
+            sop = copilot.sop_for_reasons(alert.reason_codes, alert.decision)
+            evidence = build_evidence(
+                alert, related, graph_info, state.customer_profile(alert.sender),
+                state.customer_profile(alert.receiver), sop,
+            )
+    turns = [turn.model_dump() for turn in body.history]
+    return copilot.chat(body.message, turns, body.page_context, evidence, allow_sop=analyst_context)

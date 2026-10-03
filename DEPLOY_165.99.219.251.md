@@ -173,6 +173,9 @@ ACME_EMAIL=you@example.com
 POSTGRES_PASSWORD=$(openssl rand -hex 32)
 JWT_SECRET=$(openssl rand -hex 32)
 DEMO_PASSWORD=$(openssl rand -hex 8)
+LLM_PROVIDER=auto
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-3.8-flash
 ANTHROPIC_API_KEY=
 ADMIN_ALLOW_IPS=127.0.0.1
 EOF
@@ -182,7 +185,7 @@ cat .env
 
 Then run `nano .env` and replace `you@example.com` with your real email (Let's Encrypt sends certificate notices there). Save with **Ctrl+O**, **Enter**, then exit with **Ctrl+X**.
 
-Optional: to enable Claude-written case summaries, fill in `ANTHROPIC_API_KEY=` in the same file. Without a key, the copilot uses rule-based templates and everything else works the same.
+Optional: to enable Gemini chat and AI-written case summaries, create an API key in Google AI Studio and set `GEMINI_API_KEY=` in the same file. Free-tier model access and quotas can change; without a key, the copilot uses deterministic fallbacks.
 
 > `.env` holds your secrets. It stays only on the server: `.gitignore` keeps it out of git, so never copy it into the repo.
 
@@ -305,7 +308,7 @@ The app restarts automatically after a crash or a server reboot.
 | Build ends with `Killed` or `exit code 137` | Out of memory. Make sure the swap from step 2 is on (`free -h` shows Swap 2.0G), then run the build again. |
 | Page loads but the badge says **API offline** | The web image was built for a different domain. Run `dc up -d --build web`. |
 | `502 Bad Gateway` right after start | The API is still booting. Wait 30–60 s and check `dc logs api`. |
-| Case summary says "Rule-based summary (AI unavailable)" | No Anthropic key. Add `ANTHROPIC_API_KEY` to `.env`, then `dc up -d api`. |
+| Case summary says "Rule-based summary (AI unavailable)" | No Gemini key or quota is available. Add `GEMINI_API_KEY` to `.env`, then `dc up -d api`; check AI Studio for current quotas. |
 | Forgot the demo password | `grep DEMO_PASSWORD ~/shurokkha/deploy/.env` (you rarely need it: the website signs in automatically). |
 
 ## Using your own domain
